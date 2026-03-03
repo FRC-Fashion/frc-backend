@@ -1,8 +1,23 @@
 import { Process, Processor } from '@nestjs/bull';
 import { Logger } from '@nestjs/common';
-import { Job } from 'bull';
+import type { Job } from 'bull';
 import { EmailService } from '../../src/core/email/email.service';
-import { forgotPasswordTemplate } from '../../src/core/email/templates/forgot-password.template';
+
+const forgotPasswordTemplate = (
+  username: string,
+  resetLink: string,
+): string => `
+<!DOCTYPE html>
+<html>
+<body>
+  <h2>Password Reset Request</h2>
+  <p>Hello ${username},</p>
+  <p>Click the link below to reset your password:</p>
+  <a href="${resetLink}">${resetLink}</a>
+  <p>This link expires in 15 minutes.</p>
+</body>
+</html>
+`;
 
 @Processor('email-queue')
 export class EmailProcessor {

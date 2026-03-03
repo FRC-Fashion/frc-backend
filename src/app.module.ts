@@ -8,6 +8,8 @@ import { Neo4jModule } from './core/database/neo4j/neo4j.module';
 import { AppElasticsearchModule } from './core/database/elasticsearch/elasticsearch.module';
 import { AppLoggerModule } from './core/logger/logger.module';
 import { EmailModule } from './core/email/email.module';
+import { AuthModule } from './auth/auth.module';
+import { AuthController } from './auth/auth.controller';
 
 @Module({
   imports: [
@@ -21,8 +23,9 @@ import { EmailModule } from './core/email/email.module';
     AppElasticsearchModule,
     AppLoggerModule,
     EmailModule,
+    AuthModule,
   ],
-  controllers: [AppController],
+  controllers: [AppController, AuthController],
   providers: [AppService],
 })
 export class AppModule {}

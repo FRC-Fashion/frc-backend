@@ -1,0 +1,56 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+
+// --------------------------- enums ---------------------------
+
+
+enum UserRole {
+  INDIVIDUAL
+  BUSINESS
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  BANNED
+}
+
+enum EducationLevel {
+  HIGH_SCHOOL
+  BACHELOR
+  MASTER
+  PHD
+  OTHER
+}
+
+enum ProfileFrame {
+  NONE
+  BRONZE
+  SILVER
+  GOLD
+  PLATINUM
+}
+
+enum Visibility {
+  PUBLIC
+  MEMBERS_ONLY
+  PRIVATE
+}
+
+enum PlanType {
+  FREE
+  PREMIUM
+}
+
+enum OAuthProvider {
+  GOOGLE
+  FACEBOOK
+  LINKEDIN
+}

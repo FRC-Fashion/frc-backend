@@ -1,0 +1,118 @@
+model User {
+  id                String          @id @default(cuid())
+  email             String          @unique
+  passwordHash      String?
+
+  role              UserRole        @default(INDIVIDUAL)
+  status            UserStatus      @default(ACTIVE)
+  isEmailVerified   Boolean         @default(false)
+
+  username          String          @unique
+  firstName         String
+  lastName          String
+  bio               String?
+  avatarUrl         String?
+  coverPhotoUrl     String?
+  dateOfBirth       DateTime?
+
+  country           String?
+  city              String?
+
+  yearsOfExp        Int?
+  educationLevel    EducationLevel?
+  currentJobTitle   String?
+  cvUrl             String?
+  cvUpdatedAt       DateTime?
+
+  profileFrame      ProfileFrame    @default(NONE)
+  profileStars      Int             @default(0)
+
+  isOpenToWork      Boolean         @default(false)
+  isOpenToHire      Boolean         @default(false)
+
+  locale            String          @default("en")
+  currency          String          @default("USD")
+  theme             String          @default("light")
+  emailNotif        Boolean         @default(true)
+  pushNotif         Boolean         @default(true)
+  profileVisibility Visibility      @default(PUBLIC)
+
+  mfaEnabled        Boolean         @default(false)
+  mfaSecret         String?
+  lastLoginAt       DateTime?
+  failedAttempts    Int             @default(0)
+  lockedUntil       DateTime?
+
+  plan              PlanType        @default(FREE)
+  planExpiresAt     DateTime?
+
+  isBanned          Boolean         @default(false)
+  banReason         String?
+
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  deletedAt         DateTime?
+
+  oauthAccounts     OAuthAccount[]
+  sessions          Session[]
+  devices           UserDevice[]
+
+  @@index([country, city])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+model OAuthAccount {
+  id            String        @id @default(cuid())
+  provider      OAuthProvider
+  providerId    String
+  accessToken   String?
+  refreshToken  String?
+  expiresAt     DateTime?
+
+  userId        String
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@unique([provider, providerId])
+  @@index([userId])
+  @@map("oauth_accounts")
+}
+
+model Session {
+  id            String    @id @default(cuid())
+  refreshToken  String    @unique
+  userAgent     String?
+  ip            String?
+  isValid       Boolean   @default(true)
+  expiresAt     DateTime
+
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime  @default(now())
+
+  @@index([userId])
+  @@index([refreshToken])
+  @@map("sessions")
+}
+
+model UserDevice {
+  id          String    @id @default(cuid())
+  fcmToken    String
+  platform    String
+  deviceName  String?
+  isActive    Boolean   @default(true)
+
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([userId, fcmToken])
+  @@index([userId])
+  @@map("user_devices")
+}

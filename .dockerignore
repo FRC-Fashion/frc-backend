@@ -1,0 +1,15 @@
+# node_modules copied from host - do not ignore
+# dist is pre-built and must be included
+.git
+.gitignore
+*.md
+.env
+.env.*
+!.env.example
+docker
+coverage
+logs
+*.log
+.vscode
+.idea
+generated

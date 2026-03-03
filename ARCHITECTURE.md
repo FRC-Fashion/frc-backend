@@ -138,26 +138,22 @@ frc-backend/
     │                                #   Wraps Winston or Pino for structured logging
     │                                #   Log levels, formatting, external log shipping
     │
-    └── modules/                     # ── Feature Modules (Domain Logic) ──
-        │                            #    Each module is self-contained with its own
-        │                            #    controller, service, module, DTOs, and tests.
-        │
-        ├── auth/                    # Authentication & Authorization
-        │   ├── auth.module.ts       #   Registers controller, service, strategies, guards
-        │   ├── auth.controller.ts   #   POST /auth/login, /register, /refresh, /logout
-        │   ├── auth.service.ts      #   validateUser, login, register, generateTokens
-        │   ├── dto/
-        │   │   ├── login.dto.ts     #   { email, password }
-        │   │   └── register.dto.ts  #   { name, email, password, confirmPassword }
-        │   └── strategies/
-        │       └── jwt.strategy.ts  #   Passport JWT strategy — validates Bearer tokens
-        │
-        └── users/                   # User Management
-            ├── users.module.ts      #   Registers controller, service; exports UsersService
-            ├── users.controller.ts  #   GET /users/me, PATCH /users/me, GET /users/:id
-            ├── users.service.ts     #   findById, findByEmail, create, update, delete
-            └── dto/
-                └── update-user.dto.ts  # { name?, bio?, avatar? }
+    ├── auth/                        # ── Authentication & Authorization ──
+    │   ├── auth.module.ts           # Registers controller, service, strategies, guards
+    │   ├── auth.controller.ts       # POST /auth/login, /register, /refresh, /logout
+    │   ├── auth.service.ts          # validateUser, login, register, generateTokens
+    │   ├── dto/
+    │   │   ├── login.dto.ts         # { email, password }
+    │   │   └── register.dto.ts      # { name, email, password, confirmPassword }
+    │   └── strategies/
+    │       └── jwt.strategy.ts      # Passport JWT strategy — validates Bearer tokens
+    │
+    └── users/                       # ── User Management ──
+        ├── users.module.ts          # Registers controller, service; exports UsersService
+        ├── users.controller.ts      # GET /users/me, PATCH /users/me, GET /users/:id
+        ├── users.service.ts         # findById, findByEmail, create, update, delete
+        └── dto/
+            └── update-user.dto.ts   # { name?, bio?, avatar? }
 ```
 
 ---
@@ -170,18 +166,18 @@ Request → Middleware → Guards → Interceptors (pre) → Pipes → Controlle
 Response ← Interceptors (post) ← Filters (on error) ←────────────────────────────────  ┘
 ```
 
-| Layer       | Location       | Responsibility                                                                                                                               |
-| ----------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Common**  | `src/common/`  | Reusable, stateless building blocks shared across all modules. No business logic.                                                            |
-| **Core**    | `src/core/`    | Infrastructure services (database, config, logging). Registered once globally in `AppModule`.                                                |
-| **Modules** | `src/modules/` | Feature-specific business logic. Each module owns its controllers, services, DTOs, and tests. Modules communicate through exported services. |
-| **Workers** | `workers/`     | Background job processors. Decoupled from the HTTP lifecycle, consume jobs from Bull queues.                                                 |
+| Layer        | Location         | Responsibility                                                                                                                           |
+| ------------ | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| **Common**   | `src/common/`    | Reusable, stateless building blocks shared across all modules. No business logic.                                                        |
+| **Core**     | `src/core/`      | Infrastructure services (database, config, logging). Registered once globally in `AppModule`.                                            |
+| **Features** | `src/<feature>/` | Feature-specific business logic. Each domain owns its controllers, services, DTOs, and tests. Modules communicate via exported services. |
+| **Workers**  | `workers/`       | Background job processors. Decoupled from the HTTP lifecycle, consume jobs from Bull queues.                                             |
 
 ---
 
 ## Module Conventions
 
-Every feature module under `src/modules/<feature>/` follows this pattern:
+Every feature module under `src/<feature>/` follows this pattern:
 
 ```
 <feature>/
