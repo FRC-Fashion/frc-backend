@@ -1,0 +1,24 @@
+info:
+  name: Logout
+  type: http
+  seq: 8
+
+http:
+  method: POST
+  url: "{{url}}/auth/logout"
+  headers:
+    - name: Authorization
+      value: FRC-PREFIX-BEARER-TOKEN eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImNtbWN0ZGk0NTAwMDFra2M3c2Q3aWxra2kiLCJyb2xlIjoiSU5ESVZJRFVBTCIsInVzZXJuYW1lIjoiT21hckVsbmFkaTQ3MDYiLCJlbWFpbCI6Im9tYWUuZWxuYWRpaUBnbWFpbC5jb20iLCJmaXJzdE5hbWUiOiJPbWFyIiwibGFzdE5hbWUiOiJFbG5hZGkiLCJpYXQiOjE3NzI2ODk5MTYsImV4cCI6MTc3Mjc3NjMxNn0.JcPIosGKrNOhr4swwlO0SGb1KsixQ1bMVRiUZtUvTh0
+  body:
+    type: json
+    data: |-
+      {
+        "email": "omae.elnadii@gmail.com"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

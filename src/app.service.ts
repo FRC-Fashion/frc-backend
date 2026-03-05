@@ -3,6 +3,6 @@ import { Injectable } from '@nestjs/common';
 @Injectable()
 export class AppService {
   getHello(): string {
-    return 'Hello From FRC Backend';
+    return 'FRC Backend Is Running';
   }
 }

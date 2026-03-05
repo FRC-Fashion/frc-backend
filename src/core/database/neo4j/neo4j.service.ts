@@ -28,8 +28,11 @@ export class Neo4jService implements OnModuleInit, OnModuleDestroy {
       await this.driver.verifyConnectivity();
       this.logger.log('🕸️  Neo4j Graph Database Connected Successfully');
     } catch (error) {
-      this.logger.error('Neo4j connection error:', error);
-      throw error;
+      this.logger.warn(
+        '⚠️  Neo4j is not available — proceeding without graph database. ' +
+          'Features that depend on Neo4j will not work.',
+      );
+      // Don't throw — allow the app to start without Neo4j
     }
   }
 

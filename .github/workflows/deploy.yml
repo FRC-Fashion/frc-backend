@@ -29,5 +29,9 @@ jobs:
             # Build & start all services (uses .env.production on the server)
             docker compose --env-file .env.production up -d --build
 
+            # Run DB migrations automatically
+            docker compose --env-file .env.production exec -T app \
+              node_modules/.bin/prisma migrate deploy
+
             # Cleanup old dangling images to free disk space
             docker image prune -f

@@ -9,7 +9,6 @@ import { AppElasticsearchModule } from './core/database/elasticsearch/elasticsea
 import { AppLoggerModule } from './core/logger/logger.module';
 import { EmailModule } from './core/email/email.module';
 import { AuthModule } from './auth/auth.module';
-import { AuthController } from './auth/auth.controller';
 
 @Module({
   imports: [
@@ -25,7 +24,7 @@ import { AuthController } from './auth/auth.controller';
     EmailModule,
     AuthModule,
   ],
-  controllers: [AppController, AuthController],
+  controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule {}
