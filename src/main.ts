@@ -17,6 +17,29 @@ async function bootstrap() {
 
   app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));
 
+  // ─── Enable CORS ─────────────────────────────────────────────────────────────
+  app.enableCors({
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+
+      // Allow any localhost port or any subdomain of fashionretailclub/foodretailclub
+      if (
+        origin.match(/^https?:\/\/localhost(:\d+)?$/) ||
+        origin.match(/^https?:\/\/([a-zA-Z0-9-]+\.)?fashionretailclub\.com$/) ||
+        origin.match(/^https?:\/\/([a-zA-Z0-9-]+\.)?foodretailclub\.com$/) ||
+        // If you test from local network IP e.g. 192.168.x.x
+        origin.match(/^https?:\/\/192\.168\.\d+\.\d+(:\d+)?$/)
+      ) {
+        return callback(null, true);
+      }
+
+      // Reject others to be secure
+      callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true, // Allows cookies/authorization headers to be sent safely
+  });
+
   // ─── Global Validation Pipe ──────────────────────────────────────────────────
   app.useGlobalPipes(
     new ValidationPipe({

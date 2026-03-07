@@ -10,8 +10,8 @@ http:
     type: json
     data: |-
       {
-        "email": "omae.elnadii@gmail.com",
-        "activationCode": "4632"
+        "email": "omar.elnadi.dev@gmail.com",
+        "activationCode": "958721"
       }
   auth: inherit
 

@@ -35,5 +35,5 @@ jobs:
             docker compose exec -T frc-community-backend \
               node_modules/.bin/prisma migrate deploy
 
-            # Cleanup
+            # Cleanup old dangling images to free disk space
             docker image prune -f
