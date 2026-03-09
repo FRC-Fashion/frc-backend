@@ -566,4 +566,170 @@ export class AuthService {
 
     return { access_token, refresh_token };
   }
+
+  // ─── Google Login ────────────────────────────────────────────────────────────
+  async googleLogin(req: any) {
+    if (!req.user) {
+      throw new BadRequestException('No user returned from Google');
+    }
+
+    const { email, firstName, lastName, picture } = req.user;
+    const normalizedEmail = email.toLowerCase();
+
+    let user = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+
+    if (!user) {
+      // User doesn't exist, create a new one using Google data
+      const baseUsername = `${firstName}${lastName}`.trim().replace(/\s+/g, '');
+      const digits = customAlphabet('0123456789', 4);
+      let username: string;
+      do {
+        username = `${baseUsername}${digits()}`;
+      } while (await this.prisma.user.findUnique({ where: { username } }));
+
+      // Password is not required for google logged in users since they use OAuth
+      // passwordHash? is optional according to schema
+      user = await this.prisma.user.create({
+        data: {
+          email: normalizedEmail,
+          firstName: firstName || 'Google',
+          lastName: lastName || 'User',
+          username,
+          isEmailVerified: true,
+          avatarUrl: picture, // Store the google photo
+        },
+      });
+    } else {
+      // Ensure email verified is true since they are coming from Google
+      if (!user.isEmailVerified) {
+        user = await this.prisma.user.update({
+          where: { id: user.id },
+          data: { isEmailVerified: true },
+        });
+      }
+    }
+
+    const accessSecret = this.configService.get<string>('JWT_SECRET');
+    const refreshSecret = this.configService.get<string>('JWT_REFRESH_SECRET');
+
+    const access_token = this.jwtService.sign(
+      {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      },
+      { secret: accessSecret, expiresIn: '1d' },
+    );
+
+    const refresh_token = this.jwtService.sign(
+      { id: user.id, username: user.username },
+      { secret: refreshSecret, expiresIn: '7d' },
+    );
+
+    // Save refresh token in sessions table
+    await this.prisma.session.create({
+      data: {
+        userId: user.id,
+        refreshToken: refresh_token,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+    });
+
+    // Update last login
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
+
+    return {
+      message: 'Google Login Successfully',
+      access_token,
+      refresh_token,
+    };
+  }
+
+  // ─── LinkedIn Login ──────────────────────────────────────────────────────────
+  async linkedinLogin(req: any) {
+    if (!req.user) {
+      throw new BadRequestException('No user returned from LinkedIn');
+    }
+
+    const { email, firstName, lastName, picture } = req.user;
+    const normalizedEmail = email.toLowerCase();
+
+    let user = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+
+    if (!user) {
+      const baseUsername = `${firstName}${lastName}`.trim().replace(/\s+/g, '');
+      const digits = customAlphabet('0123456789', 4);
+      let username: string;
+      do {
+        username = `${baseUsername}${digits()}`;
+      } while (await this.prisma.user.findUnique({ where: { username } }));
+
+      user = await this.prisma.user.create({
+        data: {
+          email: normalizedEmail,
+          firstName: firstName || 'LinkedIn',
+          lastName: lastName || 'User',
+          username,
+          isEmailVerified: true,
+          avatarUrl: picture,
+        },
+      });
+    } else {
+      if (!user.isEmailVerified) {
+        user = await this.prisma.user.update({
+          where: { id: user.id },
+          data: { isEmailVerified: true },
+        });
+      }
+    }
+
+    const accessSecret = this.configService.get<string>('JWT_SECRET');
+    const refreshSecret = this.configService.get<string>('JWT_REFRESH_SECRET');
+
+    const access_token = this.jwtService.sign(
+      {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      },
+      { secret: accessSecret, expiresIn: '1d' },
+    );
+
+    const refresh_token = this.jwtService.sign(
+      { id: user.id, username: user.username },
+      { secret: refreshSecret, expiresIn: '7d' },
+    );
+
+    // Save refresh token in sessions table
+    await this.prisma.session.create({
+      data: {
+        userId: user.id,
+        refreshToken: refresh_token,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+    });
+
+    // Update last login
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
+
+    return {
+      message: 'LinkedIn Login Successfully',
+      access_token,
+      refresh_token,
+    };
+  }
 }

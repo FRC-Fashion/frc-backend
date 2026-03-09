@@ -3,10 +3,10 @@ services:
     image: redis:7-alpine
     container_name: frc_redis
     restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
     command: >
-      redis-server
-      --requirepass ${REDIS_PASSWORD:-}
-      --appendonly yes
+      sh -c 'if [ -n "$$REDIS_PASSWORD" ]; then redis-server --requirepass "$$REDIS_PASSWORD" --appendonly yes; else redis-server --appendonly yes; fi'
     ports:
       - '${REDIS_PORT:-6379}:6379'
     volumes:

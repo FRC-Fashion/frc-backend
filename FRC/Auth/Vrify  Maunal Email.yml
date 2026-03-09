@@ -1,17 +1,17 @@
 info:
-  name: Login
+  name: Vrify  Maunal Email
   type: http
-  seq: 7
+  seq: 2
 
 http:
   method: POST
-  url: "{{url}}/auth/login"
+  url: "{{url}}/auth/email-verification/verify"
   body:
     type: json
     data: |-
       {
-        "email": "omae.elnadii@gmail.com",
-        "password": "Password123"
+        "email": "omarahmedelnadey@gmail.com",
+        "activationCode": "958721"
       }
   auth: inherit
 

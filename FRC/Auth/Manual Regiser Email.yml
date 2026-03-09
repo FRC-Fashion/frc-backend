@@ -1,16 +1,18 @@
 info:
-  name: Resend Vrify Email
+  name: Manual Regiser Email
   type: http
-  seq: 3
+  seq: 1
 
 http:
   method: POST
-  url: "{{url}}/auth/email-verification/resend"
+  url: "{{url}}/auth/register"
   body:
     type: json
     data: |-
       {
-        "email": "omae.elnadii@gmail.com"
+        "fullName": "Omar Elnadi",
+        "email": "omar.elnadi.dev@gmail.com",
+        "password": "Password123"
       }
   auth: inherit
 

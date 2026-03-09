@@ -15,6 +15,11 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - frc_network
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
@@ -25,6 +30,11 @@ services:
       - redis_data:/data
     networks:
       - frc_network
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   neo4j:
     image: neo4j:5-community
@@ -36,6 +46,11 @@ services:
       - neo4j_data:/data
     networks:
       - frc_network
+    healthcheck:
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:7474']
+      interval: 15s
+      timeout: 10s
+      retries: 5
 
   elasticsearch:
     image: elasticsearch:8.13.0
@@ -50,6 +65,11 @@ services:
       - elasticsearch_data:/usr/share/elasticsearch/data
     networks:
       - frc_network
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -s -f http://localhost:9200/_cluster/health || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
 
 
   # ==========================================
