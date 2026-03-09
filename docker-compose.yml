@@ -13,7 +13,7 @@ services:
       POSTGRES_DB: frc_db
     volumes:
       # بنربط الداتا بمسار حقيقي وثابت على السيرفر
-      - /opt/frc_data/postgres:/var/lib/postgresql/data
+      - /opt/fashion_retail_club_data/postgres:/var/lib/postgresql/data
     networks:
       - frc_network
     healthcheck:
@@ -28,7 +28,7 @@ services:
     restart: unless-stopped
     command: redis-server --appendonly yes
     volumes:
-      - /opt/frc_data/redis:/data
+      - /opt/fashion_retail_club_data/redis:/data
     networks:
       - frc_network
     healthcheck:
@@ -37,24 +37,24 @@ services:
       timeout: 5s
       retries: 5
 
- ## neo4j:
-   ## image: neo4j:5-community
-   # container_name: shared_neo4j
-   # restart: unless-stopped
-   # environment:
-   #   NEO4J_AUTH: neo4j/12345678
-   #   NEO4J_server_memory_heap_initial__size: 256m
-   #   NEO4J_server_memory_heap_max__size: 256m
-   #   NEO4J_server_memory_pagecache_size: 256m
-   # volumes:
-   #   - /opt/frc_data/neo4j:/data
-   # networks:
-   #   - frc_network
-   # healthcheck:
-   #   test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:7474']
-   #   interval: 15s
-   #   timeout: 10s
-   #   retries: 5
+  # neo4j:
+  #   image: neo4j:5-community
+  #   container_name: shared_neo4j
+  #   restart: unless-stopped
+  #   environment:
+  #     NEO4J_AUTH: neo4j/12345678
+  #     NEO4J_server_memory_heap_initial__size: 256m
+  #     NEO4J_server_memory_heap_max__size: 256m
+  #     NEO4J_server_memory_pagecache_size: 256m
+  #   volumes:
+  #     - /opt/fashion_retail_club_data/neo4j:/data
+  #   networks:
+  #     - frc_network
+  #   healthcheck:
+  #     test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:7474']
+  #     interval: 15s
+  #     timeout: 10s
+  #     retries: 5
 
   elasticsearch:
     image: elasticsearch:8.13.0
@@ -66,7 +66,7 @@ services:
       - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
       - cluster.routing.allocation.disk.threshold_enabled=false
     volumes:
-      - /opt/frc_data/elasticsearch:/usr/share/elasticsearch/data
+      - /opt/fashion_retail_club_data/elasticsearch:/usr/share/elasticsearch/data
     networks:
       - frc_network
     healthcheck:
@@ -90,7 +90,7 @@ services:
     depends_on:
       - postgres
       - redis
-      - neo4j
+      # - neo4j
       - elasticsearch
     ports:
       - "4000:3000" 
