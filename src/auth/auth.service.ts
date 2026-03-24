@@ -15,6 +15,7 @@ import { customAlphabet } from 'nanoid';
 import { PrismaService } from '../core/database/prisma/prisma.service';
 import { EmailService } from '../core/email/email.service';
 import { RedisService } from '../core/database/redis/redis.service';
+import { InfobipService } from '../core/infobip/infobip.service';
 import {
   sendActivationCodeTemplate,
   sendForgetCodeTemplate,
@@ -26,6 +27,11 @@ import { ResendActivationDto } from './dto/resend-activation.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { VerifyForgotCodeDto } from './dto/verify-forgot-code.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { PhoneRegisterDto } from './dto/phone-register.dto';
+import { PhoneLoginDto } from './dto/phone-login.dto';
+import { VerifyPhoneOtpDto } from './dto/verify-phone-otp.dto';
+import { PhoneForgotPasswordDto } from './dto/phone-forgot-password.dto';
+import { PhoneResetPasswordDto } from './dto/phone-reset-password.dto';
 
 @Injectable()
 export class AuthService {
@@ -35,6 +41,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly redisService: RedisService,
+    private readonly infobipService: InfobipService,
   ) {}
 
   private get saltRounds(): number {
@@ -262,24 +269,42 @@ export class AuthService {
 
   // ─── Login ───────────────────────────────────────────────────────────────────
   async login(dto: LoginDto) {
-    const { email, password } = dto;
+    const { identifier, password } = dto;
 
-    const user = await this.prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
-    });
+    // Detect whether identifier is a phone number or email
+    const isPhone = identifier.startsWith('+');
+
+    const user = isPhone
+      ? await this.prisma.user.findUnique({
+          where: { phoneNumber: identifier },
+        })
+      : await this.prisma.user.findUnique({
+          where: { email: identifier.toLowerCase() },
+        });
+
     if (!user) {
-      throw new NotFoundException('Not Register Account');
+      throw new NotFoundException('No account found with this email or phone');
     }
-    if (!user.isEmailVerified) {
-      throw new BadRequestException('Confirm Your Email First');
+
+    // For email logins: require email verified
+    if (!isPhone && !user.isEmailVerified) {
+      throw new BadRequestException('Please verify your email first');
     }
+
+    // For phone logins: require phone verified
+    if (isPhone && !user.isPhoneVerified) {
+      throw new BadRequestException('Please verify your phone number first');
+    }
+
     if (!user.passwordHash) {
-      throw new BadRequestException('Invalid Login Data');
+      throw new BadRequestException(
+        'This account uses a different login method (OAuth or OTP)',
+      );
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
-      throw new BadRequestException('Invalid Login Data');
+      throw new BadRequestException('Invalid credentials');
     }
 
     const accessSecret = this.configService.get<string>('JWT_SECRET');
@@ -317,7 +342,7 @@ export class AuthService {
     });
 
     return {
-      message: 'User Login Successfully',
+      message: 'Login successful',
       access_token,
       refresh_token,
     };
@@ -731,5 +756,379 @@ export class AuthService {
       access_token,
       refresh_token,
     };
+  }
+
+  // ─── Private: generate tokens & store session ────────────────────────────────
+  private async issueTokens(user: {
+    id: string;
+    username: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+  }) {
+    const accessSecret = this.configService.get<string>('JWT_SECRET');
+    const refreshSecret = this.configService.get<string>('JWT_REFRESH_SECRET');
+
+    const access_token = this.jwtService.sign(
+      {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      },
+      { secret: accessSecret, expiresIn: '1d' },
+    );
+
+    const refresh_token = this.jwtService.sign(
+      { id: user.id, username: user.username },
+      { secret: refreshSecret, expiresIn: '7d' },
+    );
+
+    await this.prisma.session.create({
+      data: {
+        userId: user.id,
+        refreshToken: refresh_token,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+    });
+
+    return { access_token, refresh_token };
+  }
+
+  // ─── Private: OTP rate limiting via Redis ────────────────────────────────────
+  private async checkOtpRateLimit(
+    redisClient: any,
+    lockKey: string,
+    attemptsKey: string,
+  ) {
+    const isLocked = await redisClient.get(lockKey);
+    if (isLocked) {
+      const ttl = await redisClient.ttl(lockKey);
+      throw new HttpException(
+        `Please wait ${ttl} seconds before requesting a new code`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+    const attemptsStr = await redisClient.get(attemptsKey);
+    const attempts = attemptsStr ? parseInt(attemptsStr, 10) : 0;
+    if (attempts >= 5) {
+      throw new HttpException(
+        'Daily limit exceeded. You can only request 5 times per day. Please try again after 24 hours.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+    return attempts;
+  }
+
+  private async applyOtpRateLock(
+    redisClient: any,
+    lockKey: string,
+    attemptsKey: string,
+    attempts: number,
+  ) {
+    const lockDurations = [30, 60, 300, 600, 1800];
+    const nextLockSec = lockDurations[attempts] || 1800;
+    await redisClient.set(lockKey, 'locked', 'EX', nextLockSec);
+    if (attempts === 0) {
+      await redisClient.set(attemptsKey, 1, 'EX', 24 * 60 * 60);
+    } else {
+      await redisClient.incr(attemptsKey);
+    }
+  }
+
+  // ─── Phone Register: Send OTP ────────────────────────────────────────────────
+  async phoneRegister(dto: PhoneRegisterDto) {
+    const { fullName, phoneNumber, password } = dto;
+
+    const existingUser = await this.prisma.user.findUnique({
+      where: { phoneNumber },
+    });
+    if (existingUser && existingUser.isPhoneVerified) {
+      throw new ConflictException('Phone number is already registered');
+    }
+
+    const redisClient = this.redisService.getClient();
+    const lockKey = `phone_reg_lock:${phoneNumber}`;
+    const attemptsKey = `phone_reg_attempts:${phoneNumber}`;
+    const attempts = await this.checkOtpRateLimit(
+      redisClient,
+      lockKey,
+      attemptsKey,
+    );
+
+    const nanoId = customAlphabet('0123456789', 6);
+    const otp = nanoId();
+    const otpExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 min
+    const otpHash = await bcrypt.hash(otp, this.saltRounds);
+
+    const sent = await this.infobipService.sendOtp(phoneNumber, otp);
+    if (!sent) {
+      throw new InternalServerErrorException('Failed to send WhatsApp OTP');
+    }
+
+    const passwordHash = await bcrypt.hash(password, this.saltRounds);
+    const nameParts = fullName.trim().split(/\s+/);
+    const firstName = nameParts[0];
+    const lastName =
+      nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+
+    if (existingUser) {
+      // User was created before but never verified – update OTP
+      await this.prisma.user.update({
+        where: { id: existingUser.id },
+        data: {
+          firstName,
+          lastName,
+          passwordHash,
+          mfaSecret: `phone_reg|${otpHash}|${otpExpires.getTime()}`,
+        },
+      });
+    } else {
+      // Brand new user — create without verified flag
+      const baseUsername = fullName.trim().replace(/\s+/g, '');
+      const digits = customAlphabet('0123456789', 4);
+      let username: string;
+      do {
+        username = `${baseUsername}${digits()}`;
+      } while (await this.prisma.user.findUnique({ where: { username } }));
+
+      await this.prisma.user.create({
+        data: {
+          firstName,
+          lastName,
+          username,
+          email: `phone_${phoneNumber.replace('+', '')}@placeholder.frc`,
+          phoneNumber,
+          passwordHash,
+          isPhoneVerified: false,
+          mfaSecret: `phone_reg|${otpHash}|${otpExpires.getTime()}`,
+        },
+      });
+    }
+
+    await this.applyOtpRateLock(redisClient, lockKey, attemptsKey, attempts);
+
+    return {
+      message:
+        'OTP sent to your WhatsApp. Please verify to complete registration.',
+    };
+  }
+
+  // ─── Phone Register: Verify OTP & auto-login ────────────────────────────────
+  async verifyPhoneOtp(dto: VerifyPhoneOtpDto) {
+    const { phoneNumber, otp } = dto;
+
+    const user = await this.prisma.user.findUnique({ where: { phoneNumber } });
+    if (!user) {
+      throw new NotFoundException(
+        'No registration found for this phone number',
+      );
+    }
+    if (user.isPhoneVerified) {
+      return { message: 'Phone already verified' };
+    }
+
+    const parts = (user.mfaSecret ?? '').split('|');
+    if (parts.length !== 3 || parts[0] !== 'phone_reg') {
+      throw new BadRequestException('Invalid OTP');
+    }
+
+    const [, storedHash, expiresAt] = parts;
+    if (parseInt(expiresAt) < Date.now()) {
+      throw new BadRequestException('OTP has expired');
+    }
+
+    const isValid = await bcrypt.compare(otp, storedHash);
+    if (!isValid) {
+      throw new BadRequestException('Invalid OTP');
+    }
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { isPhoneVerified: true, mfaSecret: null, lastLoginAt: new Date() },
+    });
+
+    const tokens = await this.issueTokens(user);
+
+    return {
+      message: 'Phone verified and account activated successfully',
+      ...tokens,
+    };
+  }
+
+  // ─── Phone Login: Send OTP ───────────────────────────────────────────────────
+  async phoneLogin(dto: PhoneLoginDto) {
+    const { phoneNumber } = dto;
+
+    const user = await this.prisma.user.findUnique({ where: { phoneNumber } });
+    if (!user) {
+      throw new NotFoundException('No account found with this phone number');
+    }
+    if (!user.isPhoneVerified) {
+      throw new BadRequestException('Phone number is not verified yet');
+    }
+
+    const redisClient = this.redisService.getClient();
+    const lockKey = `phone_login_lock:${phoneNumber}`;
+    const attemptsKey = `phone_login_attempts:${phoneNumber}`;
+    const attempts = await this.checkOtpRateLimit(
+      redisClient,
+      lockKey,
+      attemptsKey,
+    );
+
+    const nanoId = customAlphabet('0123456789', 6);
+    const otp = nanoId();
+    const otpExpires = new Date(Date.now() + 15 * 60 * 1000);
+    const otpHash = await bcrypt.hash(otp, this.saltRounds);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { mfaSecret: `phone_login|${otpHash}|${otpExpires.getTime()}` },
+    });
+
+    const sent = await this.infobipService.sendOtp(phoneNumber, otp);
+    if (!sent) {
+      throw new InternalServerErrorException('Failed to send WhatsApp OTP');
+    }
+
+    await this.applyOtpRateLock(redisClient, lockKey, attemptsKey, attempts);
+
+    return { message: 'OTP sent to your WhatsApp. Please verify to login.' };
+  }
+
+  // ─── Phone Login: Verify OTP ─────────────────────────────────────────────────
+  async verifyPhoneLoginOtp(dto: VerifyPhoneOtpDto) {
+    const { phoneNumber, otp } = dto;
+
+    const user = await this.prisma.user.findUnique({ where: { phoneNumber } });
+    if (!user) {
+      throw new NotFoundException('No account found with this phone number');
+    }
+
+    const parts = (user.mfaSecret ?? '').split('|');
+    if (parts.length !== 3 || parts[0] !== 'phone_login') {
+      throw new BadRequestException('Invalid OTP');
+    }
+
+    const [, storedHash, expiresAt] = parts;
+    if (parseInt(expiresAt) < Date.now()) {
+      throw new BadRequestException('OTP has expired');
+    }
+
+    const isValid = await bcrypt.compare(otp, storedHash);
+    if (!isValid) {
+      throw new BadRequestException('Invalid OTP');
+    }
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { mfaSecret: null, lastLoginAt: new Date() },
+    });
+
+    const tokens = await this.issueTokens(user);
+
+    return {
+      message: 'Login successful',
+      ...tokens,
+    };
+  }
+
+  // ─── Phone Forgot Password: Send OTP ────────────────────────────────────────
+  async phoneForgotPassword(dto: PhoneForgotPasswordDto) {
+    const { phoneNumber } = dto;
+
+    const user = await this.prisma.user.findUnique({ where: { phoneNumber } });
+    if (!user) {
+      throw new NotFoundException('No account found with this phone number');
+    }
+
+    const redisClient = this.redisService.getClient();
+    const lockKey = `phone_forgot_lock:${phoneNumber}`;
+    const attemptsKey = `phone_forgot_attempts:${phoneNumber}`;
+    const attempts = await this.checkOtpRateLimit(
+      redisClient,
+      lockKey,
+      attemptsKey,
+    );
+
+    const nanoId = customAlphabet('0123456789', 6);
+    const otp = nanoId();
+    const otpExpires = new Date(Date.now() + 15 * 60 * 1000);
+    const otpHash = await bcrypt.hash(otp, this.saltRounds);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { mfaSecret: `phone_forgot|${otpHash}|${otpExpires.getTime()}` },
+    });
+
+    const sent = await this.infobipService.sendOtp(phoneNumber, otp);
+    if (!sent) {
+      throw new InternalServerErrorException('Failed to send WhatsApp OTP');
+    }
+
+    await this.applyOtpRateLock(redisClient, lockKey, attemptsKey, attempts);
+
+    return {
+      message:
+        'OTP sent to your WhatsApp. Please verify to reset your password.',
+    };
+  }
+
+  // ─── Phone Reset Password ────────────────────────────────────────────────────
+  async phoneResetPassword(dto: PhoneResetPasswordDto) {
+    const { phoneNumber, otp, password, confirmPassword } = dto;
+
+    if (password !== confirmPassword) {
+      throw new BadRequestException("Passwords Don't Match");
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { phoneNumber } });
+    if (!user) {
+      throw new NotFoundException('No account found with this phone number');
+    }
+
+    const parts = (user.mfaSecret ?? '').split('|');
+    if (parts.length !== 3 || parts[0] !== 'phone_forgot') {
+      throw new BadRequestException('Invalid OTP');
+    }
+
+    const [, storedHash, expiresAt] = parts;
+    if (parseInt(expiresAt) < Date.now()) {
+      throw new BadRequestException('OTP has expired');
+    }
+
+    const isValid = await bcrypt.compare(otp, storedHash);
+    if (!isValid) {
+      throw new BadRequestException('Invalid OTP');
+    }
+
+    if (user.passwordHash) {
+      const isSame = await bcrypt.compare(password, user.passwordHash);
+      if (isSame) {
+        throw new ConflictException(
+          'New password cannot be same as old password',
+        );
+      }
+    }
+
+    const newPasswordHash = await bcrypt.hash(password, this.saltRounds);
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash: newPasswordHash,
+        mfaSecret: null,
+        updatedAt: new Date(),
+      },
+    });
+
+    // Invalidate all sessions
+    await this.prisma.session.updateMany({
+      where: { userId: user.id },
+      data: { isValid: false },
+    });
+
+    return { message: 'Password reset successfully' };
   }
 }

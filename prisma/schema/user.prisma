@@ -3,6 +3,9 @@ model User {
   email        String  @unique
   passwordHash String?
 
+  phoneNumber     String?    @unique
+  isPhoneVerified Boolean    @default(false)
+
   role            UserRole   @default(INDIVIDUAL)
   status          UserStatus @default(ACTIVE)
   isEmailVerified Boolean    @default(false)

@@ -6,18 +6,21 @@ export class GoogleOAuthGuard extends AuthGuard('google') {
   getAuthenticateOptions(context: ExecutionContext) {
     const req = context.switchToHttp().getRequest();
     return {
-      state: req.query.redirectUrl || undefined,
+      session: false,
+      state: req.query.redirectUrl || req.query.state || undefined,
     };
   }
 
   handleRequest(err: any, user: any, info: any, context: ExecutionContext, status?: any) {
     if (err || !user) {
-      // If authentication fails, redirect back to the state URL with an error
+      const errorMsg = err?.message || info?.message || 'unknown_error';
+      console.error('Google OAuthGuard Error:', { err, info });
+      
       const req = context.switchToHttp().getRequest();
       const res = context.switchToHttp().getResponse();
       const redirectBaseUrl = (req.query.state as string) || '/';
       const separator = redirectBaseUrl.includes('?') ? '&' : '?';
-      res.redirect(`${redirectBaseUrl}${separator}error=oauth_failed`);
+      res.redirect(`${redirectBaseUrl}${separator}error=oauth_failed&reason=${encodeURIComponent(errorMsg)}`);
       return null;
     }
     return user;
@@ -29,17 +32,21 @@ export class LinkedInOAuthGuard extends AuthGuard('linkedin') {
   getAuthenticateOptions(context: ExecutionContext) {
     const req = context.switchToHttp().getRequest();
     return {
-      state: req.query.redirectUrl || undefined,
+      session: false,
+      state: req.query.redirectUrl || req.query.state || undefined,
     };
   }
 
   handleRequest(err: any, user: any, info: any, context: ExecutionContext, status?: any) {
     if (err || !user) {
+      const errorMsg = err?.message || info?.message || 'unknown_error';
+      console.error('LinkedIn OAuthGuard Error:', { err, info });
+      
       const req = context.switchToHttp().getRequest();
       const res = context.switchToHttp().getResponse();
       const redirectBaseUrl = (req.query.state as string) || '/';
       const separator = redirectBaseUrl.includes('?') ? '&' : '?';
-      res.redirect(`${redirectBaseUrl}${separator}error=oauth_failed`);
+      res.redirect(`${redirectBaseUrl}${separator}error=oauth_failed&reason=${encodeURIComponent(errorMsg)}`);
       return null;
     }
     return user;

@@ -24,6 +24,11 @@ import { ResendActivationDto } from './dto/resend-activation.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { VerifyForgotCodeDto } from './dto/verify-forgot-code.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { PhoneRegisterDto } from './dto/phone-register.dto';
+import { PhoneLoginDto } from './dto/phone-login.dto';
+import { VerifyPhoneOtpDto } from './dto/verify-phone-otp.dto';
+import { PhoneForgotPasswordDto } from './dto/phone-forgot-password.dto';
+import { PhoneResetPasswordDto } from './dto/phone-reset-password.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -48,15 +53,14 @@ export class AuthController {
   // ─── Login ───────────────────────────────────────────────────────────────────
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Login user' })
+  @ApiOperation({ summary: 'Login user with email or phone + password' })
   @ApiBody({ type: LoginDto })
-  @ApiResponse({ status: 200, description: 'User Login Successfully' })
-  @ApiResponse({ status: 404, description: 'Not Register Account' })
+  @ApiResponse({ status: 200, description: 'Login successful' })
+  @ApiResponse({ status: 404, description: 'No account found' })
   @ApiResponse({
     status: 400,
-    description: 'Confirm Your Email First / Invalid Login Data',
+    description: 'Not verified / Invalid credentials / Wrong login method',
   })
-  @ApiResponse({ status: 500, description: 'Internal Server Error' })
   async login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
   }
@@ -211,10 +215,10 @@ export class AuthController {
   
       // Redirect cleanly without any URL parameters
       return res.redirect(redirectBaseUrl);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Google Auth Error:', error);
       const separator = redirectBaseUrl.includes('?') ? '&' : '?';
-      return res.redirect(`${redirectBaseUrl}${separator}error=oauth_failed`);
+      return res.redirect(`${redirectBaseUrl}${separator}error=oauth_failed&reason=${encodeURIComponent(error?.message || 'unknown_error')}`);
     }
   }
 
@@ -274,10 +278,82 @@ export class AuthController {
   
       // Redirect cleanly without any URL parameters
       return res.redirect(redirectBaseUrl);
-    } catch (error) {
+    } catch (error: any) {
       console.error('LinkedIn Auth Error:', error);
       const separator = redirectBaseUrl.includes('?') ? '&' : '?';
-      return res.redirect(`${redirectBaseUrl}${separator}error=oauth_failed`);
+      return res.redirect(`${redirectBaseUrl}${separator}error=oauth_failed&reason=${encodeURIComponent(error?.message || 'unknown_error')}`);
     }
+  }
+
+  // ─── Phone Register ─────────────────────────────────────────────────────────
+  @Post('phone/register')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Register with phone number (sends WhatsApp OTP)' })
+  @ApiBody({ type: PhoneRegisterDto })
+  @ApiResponse({ status: 200, description: 'OTP sent to WhatsApp' })
+  @ApiResponse({ status: 409, description: 'Phone number already registered' })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
+  async phoneRegister(@Body() dto: PhoneRegisterDto) {
+    return this.authService.phoneRegister(dto);
+  }
+
+  // ─── Phone Register: Verify OTP ─────────────────────────────────────────────
+  @Post('phone/verify-registration')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify phone OTP to complete registration' })
+  @ApiBody({ type: VerifyPhoneOtpDto })
+  @ApiResponse({ status: 200, description: 'Phone verified, tokens returned' })
+  @ApiResponse({ status: 400, description: 'Invalid or expired OTP' })
+  @ApiResponse({ status: 404, description: 'No registration found' })
+  async verifyPhoneOtp(@Body() dto: VerifyPhoneOtpDto) {
+    return this.authService.verifyPhoneOtp(dto);
+  }
+
+  // ─── Phone Login: Send OTP ───────────────────────────────────────────────────
+  @Post('phone/login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Login with phone number (sends WhatsApp OTP)' })
+  @ApiBody({ type: PhoneLoginDto })
+  @ApiResponse({ status: 200, description: 'OTP sent to WhatsApp' })
+  @ApiResponse({ status: 404, description: 'Account not found' })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
+  async phoneLogin(@Body() dto: PhoneLoginDto) {
+    return this.authService.phoneLogin(dto);
+  }
+
+  // ─── Phone Login: Verify OTP ─────────────────────────────────────────────────
+  @Post('phone/verify-login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify phone OTP to complete login' })
+  @ApiBody({ type: VerifyPhoneOtpDto })
+  @ApiResponse({ status: 200, description: 'Login successful, tokens returned' })
+  @ApiResponse({ status: 400, description: 'Invalid or expired OTP' })
+  @ApiResponse({ status: 404, description: 'Account not found' })
+  async verifyPhoneLoginOtp(@Body() dto: VerifyPhoneOtpDto) {
+    return this.authService.verifyPhoneLoginOtp(dto);
+  }
+
+  // ─── Phone Forgot Password ───────────────────────────────────────────────────
+  @Post('phone/password/forgot')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Send forgot password OTP via WhatsApp' })
+  @ApiBody({ type: PhoneForgotPasswordDto })
+  @ApiResponse({ status: 200, description: 'OTP sent to WhatsApp' })
+  @ApiResponse({ status: 404, description: 'Account not found' })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
+  async phoneForgotPassword(@Body() dto: PhoneForgotPasswordDto) {
+    return this.authService.phoneForgotPassword(dto);
+  }
+
+  // ─── Phone Reset Password ────────────────────────────────────────────────────
+  @Patch('phone/password/reset')
+  @ApiOperation({ summary: 'Verify OTP and reset password via phone' })
+  @ApiBody({ type: PhoneResetPasswordDto })
+  @ApiResponse({ status: 200, description: 'Password reset successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid or expired OTP' })
+  @ApiResponse({ status: 404, description: 'Account not found' })
+  @ApiResponse({ status: 409, description: 'New password cannot be same as old' })
+  async phoneResetPassword(@Body() dto: PhoneResetPasswordDto) {
+    return this.authService.phoneResetPassword(dto);
   }
 }
