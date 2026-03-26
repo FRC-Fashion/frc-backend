@@ -12,16 +12,10 @@ export class GoogleOAuthGuard extends AuthGuard('google') {
   }
 
   handleRequest(err: any, user: any, info: any, context: ExecutionContext, status?: any) {
+    const req = context.switchToHttp().getRequest();
     if (err || !user) {
-      const errorMsg = err?.message || info?.message || 'unknown_error';
-      console.error('Google OAuthGuard Error:', { err, info });
-      
-      const req = context.switchToHttp().getRequest();
-      const res = context.switchToHttp().getResponse();
-      const redirectBaseUrl = (req.query.state as string) || '/';
-      const separator = redirectBaseUrl.includes('?') ? '&' : '?';
-      res.redirect(`${redirectBaseUrl}${separator}error=oauth_failed&reason=${encodeURIComponent(errorMsg)}`);
-      return null;
+      req.oauthError = { err, info, user_status: !user ? 'false' : 'true' };
+      return null; // Return smoothly to allow Controller logic to intercept and perform 1 precise redirect.
     }
     return user;
   }
@@ -38,15 +32,29 @@ export class LinkedInOAuthGuard extends AuthGuard('linkedin') {
   }
 
   handleRequest(err: any, user: any, info: any, context: ExecutionContext, status?: any) {
+    const req = context.switchToHttp().getRequest();
     if (err || !user) {
-      const errorMsg = err?.message || info?.message || 'unknown_error';
-      console.error('LinkedIn OAuthGuard Error:', { err, info });
-      
-      const req = context.switchToHttp().getRequest();
-      const res = context.switchToHttp().getResponse();
-      const redirectBaseUrl = (req.query.state as string) || '/';
-      const separator = redirectBaseUrl.includes('?') ? '&' : '?';
-      res.redirect(`${redirectBaseUrl}${separator}error=oauth_failed&reason=${encodeURIComponent(errorMsg)}`);
+      req.oauthError = { err, info, user_status: !user ? 'false' : 'true' };
+      return null;
+    }
+    return user;
+  }
+}
+
+@Injectable()
+export class FacebookOAuthGuard extends AuthGuard('facebook') {
+  getAuthenticateOptions(context: ExecutionContext) {
+    const req = context.switchToHttp().getRequest();
+    return {
+      session: false,
+      state: req.query.redirectUrl || req.query.state || undefined,
+    };
+  }
+
+  handleRequest(err: any, user: any, info: any, context: ExecutionContext, status?: any) {
+    const req = context.switchToHttp().getRequest();
+    if (err || !user) {
+      req.oauthError = { err, info, user_status: !user ? 'false' : 'true' };
       return null;
     }
     return user;

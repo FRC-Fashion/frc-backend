@@ -758,6 +758,66 @@ export class AuthService {
     };
   }
 
+  // ─── Facebook Login ──────────────────────────────────────────────────────────
+  async facebookLogin(req: any) {
+    if (!req.user) {
+      throw new BadRequestException('No user returned from Facebook');
+    }
+
+    const { email, firstName, lastName, picture } = req.user;
+    const normalizedEmail = email?.toLowerCase();
+
+    // If email is missing (FB allows registration without email via phone), we might need a fallback
+    // For now, if no email, we use facebookId as identifier if we had it, but let's assume email is provided.
+    if (!normalizedEmail) {
+       throw new BadRequestException('Facebook account must have an email associated.');
+    }
+
+    let user = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+
+    if (!user) {
+      const baseUsername = `${firstName}${lastName}`.trim().replace(/\s+/g, '');
+      const digits = customAlphabet('0123456789', 4);
+      let username: string;
+      do {
+        username = `${baseUsername}${digits()}`;
+      } while (await this.prisma.user.findUnique({ where: { username } }));
+
+      user = await this.prisma.user.create({
+        data: {
+          email: normalizedEmail,
+          firstName: firstName || 'Facebook',
+          lastName: lastName || 'User',
+          username,
+          isEmailVerified: true,
+          avatarUrl: picture,
+        },
+      });
+    } else {
+      if (!user.isEmailVerified) {
+        user = await this.prisma.user.update({
+          where: { id: user.id },
+          data: { isEmailVerified: true },
+        });
+      }
+    }
+
+    const tokens = await this.issueTokens(user);
+
+    // Update last login
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
+
+    return {
+      message: 'Facebook Login Successfully',
+      ...tokens,
+    };
+  }
+
   // ─── Private: generate tokens & store session ────────────────────────────────
   private async issueTokens(user: {
     id: string;

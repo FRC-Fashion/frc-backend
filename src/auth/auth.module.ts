@@ -11,6 +11,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { LinkedInStrategy } from './strategies/linkedin.strategy';
+import { FacebookStrategy } from './strategies/facebook.strategy';
 
 @Module({
   imports: [
@@ -22,7 +23,7 @@ import { LinkedInStrategy } from './strategies/linkedin.strategy';
     InfobipModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, JwtRefreshStrategy, GoogleStrategy, LinkedInStrategy],
+  providers: [AuthService, JwtStrategy, JwtRefreshStrategy, GoogleStrategy, LinkedInStrategy, FacebookStrategy],
   exports: [AuthService],
 })
 export class AuthModule {}

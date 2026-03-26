@@ -15,7 +15,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { AuthGuard } from '@nestjs/passport';
 import { JwtAuthGuard, JwtRefreshAuthGuard } from './guards/jwt-auth.guard';
-import { GoogleOAuthGuard, LinkedInOAuthGuard } from './guards/oauth.guard';
+import { GoogleOAuthGuard, LinkedInOAuthGuard, FacebookOAuthGuard } from './guards/oauth.guard';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -173,8 +173,8 @@ export class AuthController {
 5. The frontend should instantly read these cookies via \`document.cookie\` or a cookie parsing library, save them to \`localStorage\`, and then act as if the user just logged in.
     `,
   })
-  async googleAuth(@Req() req: any) {
-    // Execution will be intercepted by Google OAuth Strategy
+  async googleAuth(@Req() req: any, @Res() res: any) {
+    // Execution will be intercepted by Google OAuth Strategy. @Res() prevents Nest from ending the hijacked response stream.
   }
 
   @Get('google/callback')
@@ -188,6 +188,10 @@ export class AuthController {
     const redirectBaseUrl = (req.query.state as string) || '/';
     
     try {
+      if (req.oauthError) {
+        if (res.headersSent) return;
+        throw new Error(`Guard Error: ${JSON.stringify(req.oauthError)} | Query: ${JSON.stringify(req.query)}`);
+      }
       if (!req.user) {
         throw new Error('No user from Google');
       }
@@ -217,8 +221,13 @@ export class AuthController {
       return res.redirect(redirectBaseUrl);
     } catch (error: any) {
       console.error('Google Auth Error:', error);
+      if (res.headersSent) return;
+      let errorMsg = 'controller_unknown';
+      if (error) {
+        errorMsg = typeof error === 'string' ? error : (error.message || JSON.stringify(error));
+      }
       const separator = redirectBaseUrl.includes('?') ? '&' : '?';
-      return res.redirect(`${redirectBaseUrl}${separator}error=oauth_failed&reason=${encodeURIComponent(error?.message || 'unknown_error')}`);
+      return res.redirect(`${redirectBaseUrl}${separator}error=oauth_failed&reason=${encodeURIComponent(errorMsg)}`);
     }
   }
 
@@ -237,8 +246,8 @@ export class AuthController {
 5. The frontend should instantly read these cookies via \`document.cookie\` or a cookie parsing library, save them to \`localStorage\`, and then act as if the user just logged in.
     `,
   })
-  async linkedinAuth(@Req() req: any) {
-    // Execution will be intercepted by LinkedIn OAuth Strategy
+  async linkedinAuth(@Req() req: any, @Res() res: any) {
+    // Execution will be intercepted by LinkedIn OAuth Strategy. @Res() prevents Nest from ending the hijacked response stream.
   }
 
   @Get('linkedin/callback')
@@ -252,6 +261,10 @@ export class AuthController {
     const redirectBaseUrl = (req.query.state as string) || '/';
     
     try {
+      if (req.oauthError) {
+        if (res.headersSent) return;
+        throw new Error(`Guard Error: ${JSON.stringify(req.oauthError)} | Query: ${JSON.stringify(req.query)}`);
+      }
       if (!req.user) {
         throw new Error('No user from LinkedIn');
       }
@@ -280,8 +293,81 @@ export class AuthController {
       return res.redirect(redirectBaseUrl);
     } catch (error: any) {
       console.error('LinkedIn Auth Error:', error);
+      if (res.headersSent) return;
+      let errorMsg = 'controller_unknown';
+      if (error) {
+        errorMsg = typeof error === 'string' ? error : (error.message || JSON.stringify(error));
+      }
       const separator = redirectBaseUrl.includes('?') ? '&' : '?';
-      return res.redirect(`${redirectBaseUrl}${separator}error=oauth_failed&reason=${encodeURIComponent(error?.message || 'unknown_error')}`);
+      return res.redirect(`${redirectBaseUrl}${separator}error=oauth_failed&reason=${encodeURIComponent(errorMsg)}`);
+    }
+  }
+
+  // ─── Facebook Login ──────────────────────────────────────────────────────────
+  @Get('facebook')
+  @UseGuards(FacebookOAuthGuard)
+  @ApiOperation({
+    summary: 'Initiate Facebook Login',
+    description: `
+**FRONTEND INSTRUCTIONS:**
+1. Do **NOT** use Axios or Fetch to call this endpoint.
+2. Use a direct browser redirect and pass the \`redirectUrl\` query parameter indicating where the user should be redirected after login.
+   - Example: \`<a href="API_URL/api/v1/auth/facebook?redirectUrl=https://your-frontend.com/dashboard">Login with Facebook</a>\`
+3. After successful login, the backend will redirect the user to the \`redirectUrl\` you provided.
+4. The backend sets **cross-subdomain Cookies** named \`access_token\` and \`refresh_token\`. They are valid for **60 seconds** and have \`httpOnly: false\`.
+    `,
+  })
+  async facebookAuth(@Req() req: any, @Res() res: any) {
+    // Intercepted by Passport
+  }
+
+  @Get('facebook/callback')
+  @UseGuards(FacebookOAuthGuard)
+  @ApiOperation({
+    summary: 'Facebook Callback (System Only)',
+    description: 'Facebook redirects here after login.',
+  })
+  async facebookAuthRedirect(@Req() req: any, @Res() res: any) {
+    const redirectBaseUrl = (req.query.state as string) || '/';
+    
+    try {
+      if (req.oauthError) {
+        if (res.headersSent) return;
+        throw new Error(`Guard Error: ${JSON.stringify(req.oauthError)} | Query: ${JSON.stringify(req.query)}`);
+      }
+      if (!req.user) {
+        throw new Error('No user from Facebook');
+      }
+
+      const result = await this.authService.facebookLogin(req);
+      const isProd = this.configService.get<string>('NODE_ENV') === 'production';
+      const host = req.headers.host || '';
+      
+      const isFRCRoot = host.includes('fashionretailclub.com');
+      const cookieDomain = isFRCRoot ? '.fashionretailclub.com' : undefined;
+  
+      const cookieOptions = {
+        domain: cookieDomain,
+        httpOnly: false,
+        secure: isProd || isFRCRoot,
+        sameSite: 'lax' as const,
+        path: '/',
+        maxAge: 60 * 1000,
+      };
+  
+      res.cookie('access_token', result.access_token, cookieOptions);
+      res.cookie('refresh_token', result.refresh_token, cookieOptions);
+  
+      return res.redirect(redirectBaseUrl);
+    } catch (error: any) {
+      console.error('Facebook Auth Error:', error);
+      if (res.headersSent) return;
+      let errorMsg = 'controller_unknown';
+      if (error) {
+        errorMsg = typeof error === 'string' ? error : (error.message || JSON.stringify(error));
+      }
+      const separator = redirectBaseUrl.includes('?') ? '&' : '?';
+      return res.redirect(`${redirectBaseUrl}${separator}error=oauth_failed&reason=${encodeURIComponent(errorMsg)}`);
     }
   }
 
