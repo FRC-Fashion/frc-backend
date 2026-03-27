@@ -215,11 +215,8 @@ export class AuthController {
       res.cookie('access_token', result.access_token, cookieOptions);
       res.cookie('refresh_token', result.refresh_token, cookieOptions);
   
-      let finalRedirectUrl = redirectBaseUrl;
-      if (redirectBaseUrl.includes('localhost') || redirectBaseUrl.includes('127.0.0.1')) {
-        const separator = redirectBaseUrl.includes('?') ? '&' : '?';
-        finalRedirectUrl = `${redirectBaseUrl}${separator}access_token=${result.access_token}&refresh_token=${result.refresh_token}`;
-      }
+      const separator = redirectBaseUrl.includes('?') ? '&' : '?';
+      const finalRedirectUrl = `${redirectBaseUrl}${separator}access_token=${result.access_token}&refresh_token=${result.refresh_token}`;
 
       return res.redirect(finalRedirectUrl);
     } catch (error: any) {
@@ -291,11 +288,8 @@ export class AuthController {
       res.cookie('access_token', result.access_token, cookieOptions);
       res.cookie('refresh_token', result.refresh_token, cookieOptions);
   
-      let finalRedirectUrl = redirectBaseUrl;
-      if (redirectBaseUrl.includes('localhost') || redirectBaseUrl.includes('127.0.0.1')) {
-        const separator = redirectBaseUrl.includes('?') ? '&' : '?';
-        finalRedirectUrl = `${redirectBaseUrl}${separator}access_token=${result.access_token}&refresh_token=${result.refresh_token}`;
-      }
+      const separator = redirectBaseUrl.includes('?') ? '&' : '?';
+      const finalRedirectUrl = `${redirectBaseUrl}${separator}access_token=${result.access_token}&refresh_token=${result.refresh_token}`;
 
       return res.redirect(finalRedirectUrl);
     } catch (error: any) {
@@ -364,11 +358,8 @@ export class AuthController {
       res.cookie('access_token', result.access_token, cookieOptions);
       res.cookie('refresh_token', result.refresh_token, cookieOptions);
   
-      let finalRedirectUrl = redirectBaseUrl;
-      if (redirectBaseUrl.includes('localhost') || redirectBaseUrl.includes('127.0.0.1')) {
-        const separator = redirectBaseUrl.includes('?') ? '&' : '?';
-        finalRedirectUrl = `${redirectBaseUrl}${separator}access_token=${result.access_token}&refresh_token=${result.refresh_token}`;
-      }
+      const separator = redirectBaseUrl.includes('?') ? '&' : '?';
+      const finalRedirectUrl = `${redirectBaseUrl}${separator}access_token=${result.access_token}&refresh_token=${result.refresh_token}`;
 
       return res.redirect(finalRedirectUrl);
     } catch (error: any) {
