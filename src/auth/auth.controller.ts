@@ -200,15 +200,13 @@ export class AuthController {
       const isProd = this.configService.get<string>('NODE_ENV') === 'production';
       const host = req.headers.host || '';
       
-      // If we are on any fashionretailclub domain (e.g. dev., api., www.), share the cookie
-      const isFRCRoot = host.includes('fashionretailclub.com');
-      const cookieDomain = isFRCRoot ? '.fashionretailclub.com' : undefined;
+      const cookieDomain = this.configService.get<string>('COOKIE_DOMAIN') || undefined;
   
       // Set configuration for cross-subdomain cookies
       const cookieOptions = {
         domain: cookieDomain,
         httpOnly: false, // Must be false so frontend JS can read it and save it to LocalStorage
-        secure: isProd || isFRCRoot, // True on production or HTTPS domains
+        secure: isProd || (!!cookieDomain && host.includes(cookieDomain.replace(/^\./, ''))), // Secure if production or if running on a custom domain HTTPS
         sameSite: 'lax' as const,
         path: '/',
         maxAge: 60 * 1000, // 60 seconds is enough for frontend to capture the tokens
@@ -273,14 +271,13 @@ export class AuthController {
       const isProd = this.configService.get<string>('NODE_ENV') === 'production';
       const host = req.headers.host || '';
       
-      const isFRCRoot = host.includes('fashionretailclub.com');
-      const cookieDomain = isFRCRoot ? '.fashionretailclub.com' : undefined;
+      const cookieDomain = this.configService.get<string>('COOKIE_DOMAIN') || undefined;
   
       // Set configuration for cross-subdomain cookies
       const cookieOptions = {
         domain: cookieDomain,
         httpOnly: false,
-        secure: isProd || isFRCRoot,
+        secure: isProd || (!!cookieDomain && host.includes(cookieDomain.replace(/^\./, ''))),
         sameSite: 'lax' as const,
         path: '/',
         maxAge: 60 * 1000, // 60 seconds
@@ -343,13 +340,12 @@ export class AuthController {
       const isProd = this.configService.get<string>('NODE_ENV') === 'production';
       const host = req.headers.host || '';
       
-      const isFRCRoot = host.includes('fashionretailclub.com');
-      const cookieDomain = isFRCRoot ? '.fashionretailclub.com' : undefined;
+      const cookieDomain = this.configService.get<string>('COOKIE_DOMAIN') || undefined;
   
       const cookieOptions = {
         domain: cookieDomain,
         httpOnly: false,
-        secure: isProd || isFRCRoot,
+        secure: isProd || (!!cookieDomain && host.includes(cookieDomain.replace(/^\./, ''))),
         sameSite: 'lax' as const,
         path: '/',
         maxAge: 60 * 1000,
