@@ -215,8 +215,13 @@ export class AuthController {
       res.cookie('access_token', result.access_token, cookieOptions);
       res.cookie('refresh_token', result.refresh_token, cookieOptions);
   
-      // Redirect cleanly without any URL parameters
-      return res.redirect(redirectBaseUrl);
+      let finalRedirectUrl = redirectBaseUrl;
+      if (redirectBaseUrl.includes('localhost') || redirectBaseUrl.includes('127.0.0.1')) {
+        const separator = redirectBaseUrl.includes('?') ? '&' : '?';
+        finalRedirectUrl = `${redirectBaseUrl}${separator}access_token=${result.access_token}&refresh_token=${result.refresh_token}`;
+      }
+
+      return res.redirect(finalRedirectUrl);
     } catch (error: any) {
       console.error('Google Auth Error:', error);
       if (res.headersSent) return;
@@ -286,8 +291,13 @@ export class AuthController {
       res.cookie('access_token', result.access_token, cookieOptions);
       res.cookie('refresh_token', result.refresh_token, cookieOptions);
   
-      // Redirect cleanly without any URL parameters
-      return res.redirect(redirectBaseUrl);
+      let finalRedirectUrl = redirectBaseUrl;
+      if (redirectBaseUrl.includes('localhost') || redirectBaseUrl.includes('127.0.0.1')) {
+        const separator = redirectBaseUrl.includes('?') ? '&' : '?';
+        finalRedirectUrl = `${redirectBaseUrl}${separator}access_token=${result.access_token}&refresh_token=${result.refresh_token}`;
+      }
+
+      return res.redirect(finalRedirectUrl);
     } catch (error: any) {
       console.error('LinkedIn Auth Error:', error);
       if (res.headersSent) return;
@@ -354,7 +364,13 @@ export class AuthController {
       res.cookie('access_token', result.access_token, cookieOptions);
       res.cookie('refresh_token', result.refresh_token, cookieOptions);
   
-      return res.redirect(redirectBaseUrl);
+      let finalRedirectUrl = redirectBaseUrl;
+      if (redirectBaseUrl.includes('localhost') || redirectBaseUrl.includes('127.0.0.1')) {
+        const separator = redirectBaseUrl.includes('?') ? '&' : '?';
+        finalRedirectUrl = `${redirectBaseUrl}${separator}access_token=${result.access_token}&refresh_token=${result.refresh_token}`;
+      }
+
+      return res.redirect(finalRedirectUrl);
     } catch (error: any) {
       console.error('Facebook Auth Error:', error);
       if (res.headersSent) return;

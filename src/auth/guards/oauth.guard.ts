@@ -11,7 +11,13 @@ export class GoogleOAuthGuard extends AuthGuard('google') {
     };
   }
 
-  handleRequest(err: any, user: any, info: any, context: ExecutionContext, status?: any) {
+  handleRequest(
+    err: any,
+    user: any,
+    info: any,
+    context: ExecutionContext,
+    status?: any,
+  ) {
     const req = context.switchToHttp().getRequest();
     if (err || !user) {
       req.oauthError = { err, info, user_status: !user ? 'false' : 'true' };
@@ -31,7 +37,13 @@ export class LinkedInOAuthGuard extends AuthGuard('linkedin') {
     };
   }
 
-  handleRequest(err: any, user: any, info: any, context: ExecutionContext, status?: any) {
+  handleRequest(
+    err: any,
+    user: any,
+    info: any,
+    context: ExecutionContext,
+    status?: any,
+  ) {
     const req = context.switchToHttp().getRequest();
     if (err || !user) {
       req.oauthError = { err, info, user_status: !user ? 'false' : 'true' };
@@ -51,7 +63,13 @@ export class FacebookOAuthGuard extends AuthGuard('facebook') {
     };
   }
 
-  handleRequest(err: any, user: any, info: any, context: ExecutionContext, status?: any) {
+  handleRequest(
+    err: any,
+    user: any,
+    info: any,
+    context: ExecutionContext,
+    status?: any,
+  ) {
     const req = context.switchToHttp().getRequest();
     if (err || !user) {
       req.oauthError = { err, info, user_status: !user ? 'false' : 'true' };
