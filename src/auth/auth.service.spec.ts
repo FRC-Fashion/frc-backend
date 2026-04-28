@@ -35,8 +35,8 @@ const mockUser = (overrides = {}) => ({
   passwordHash: '$2b$10$hashedpassword',
   mfaSecret: null,
   emailVerifiedAt: new Date(),
-  isEmailVerified: true,
-  isPhoneVerified: true,
+  isEmailVerified: false,
+  isPhoneVerified: false,
   avatarUrl: null,
   lastLoginAt: null,
   ...overrides,
@@ -186,7 +186,7 @@ describe('AuthService', () => {
       });
 
       prismaServiceMock.user.findUnique.mockResolvedValue(user);
-      prismaServiceMock.userSession.create.mockResolvedValue({});
+      prismaServiceMock.session.create.mockResolvedValue({});
       prismaServiceMock.user.update.mockResolvedValue({});
 
       const result = await service.verifyActivationCode({
@@ -261,10 +261,10 @@ describe('AuthService', () => {
     it('should login successfully with valid email and password', async () => {
       const password = 'Password123!';
       const passwordHash = await bcrypt.hash(password, 10);
-      const user = mockUser({ passwordHash });
+      const user = mockUser({ passwordHash, isEmailVerified: true });
 
       prismaServiceMock.user.findUnique.mockResolvedValue(user);
-      prismaServiceMock.userSession.create.mockResolvedValue({});
+      prismaServiceMock.session.create.mockResolvedValue({});
       prismaServiceMock.user.update.mockResolvedValue({});
 
       const result = await service.login({
@@ -309,7 +309,7 @@ describe('AuthService', () => {
   describe('logout', () => {
     it('should logout successfully', async () => {
       prismaServiceMock.user.findUnique.mockResolvedValue(mockUser());
-      prismaServiceMock.userSession.updateMany.mockResolvedValue({ count: 1 });
+      prismaServiceMock.session.updateMany.mockResolvedValue({ count: 1 });
 
       const result = await service.logout('user-1');
       expect(result.message).toBe('User Logout Successfully');
@@ -325,11 +325,11 @@ describe('AuthService', () => {
 
     it('should invalidate specific session when refresh token is provided', async () => {
       prismaServiceMock.user.findUnique.mockResolvedValue(mockUser());
-      prismaServiceMock.userSession.updateMany.mockResolvedValue({ count: 1 });
+      prismaServiceMock.session.updateMany.mockResolvedValue({ count: 1 });
 
       await service.logout('user-1', 'specific-refresh-token');
 
-      expect(prismaServiceMock.userSession.updateMany).toHaveBeenCalledWith({
+      expect(prismaServiceMock.session.updateMany).toHaveBeenCalledWith({
         where: { userId: 'user-1', refreshToken: 'specific-refresh-token' },
         data: { isValid: false },
       });
@@ -478,7 +478,7 @@ describe('AuthService', () => {
 
       prismaServiceMock.user.findUnique.mockResolvedValue(user);
       prismaServiceMock.user.update.mockResolvedValue({});
-      prismaServiceMock.userSession.updateMany.mockResolvedValue({ count: 1 });
+      prismaServiceMock.session.updateMany.mockResolvedValue({ count: 1 });
 
       const result = await service.resetPassword({
         email: user.email,
@@ -518,8 +518,8 @@ describe('AuthService', () => {
   describe('refreshToken', () => {
     it('should issue new token pair for valid session', async () => {
       prismaServiceMock.user.findUnique.mockResolvedValue(mockUser());
-      prismaServiceMock.userSession.findFirst.mockResolvedValue(mockSession());
-      prismaServiceMock.userSession.update.mockResolvedValue({});
+      prismaServiceMock.session.findFirst.mockResolvedValue(mockSession());
+      prismaServiceMock.session.update.mockResolvedValue({});
 
       const result = await service.refreshToken('user-1', 'refresh-token');
 
@@ -537,7 +537,7 @@ describe('AuthService', () => {
 
     it('should throw UnauthorizedException for invalid/expired session', async () => {
       prismaServiceMock.user.findUnique.mockResolvedValue(mockUser());
-      prismaServiceMock.userSession.findFirst.mockResolvedValue(null);
+      prismaServiceMock.session.findFirst.mockResolvedValue(null);
 
       await expect(
         service.refreshToken('user-1', 'bad-token'),
@@ -689,9 +689,9 @@ describe('AuthService', () => {
 
       prismaServiceMock.user.findUnique.mockResolvedValue(null);
       prismaServiceMock.user.create.mockResolvedValue(
-        mockUser({ email: 'google@example.com' }),
+        mockUser({ email: 'google@example.com', isEmailVerified: true }),
       );
-      prismaServiceMock.userSession.create.mockResolvedValue({});
+      prismaServiceMock.session.create.mockResolvedValue({});
       prismaServiceMock.user.update.mockResolvedValue({});
 
       const result = await service.googleLogin(req);
@@ -710,8 +710,10 @@ describe('AuthService', () => {
         },
       };
 
-      prismaServiceMock.user.findUnique.mockResolvedValue(mockUser());
-      prismaServiceMock.userSession.create.mockResolvedValue({});
+      prismaServiceMock.user.findUnique.mockResolvedValue(
+        mockUser({ isEmailVerified: true }),
+      );
+      prismaServiceMock.session.create.mockResolvedValue({});
       prismaServiceMock.user.update.mockResolvedValue({});
 
       const result = await service.googleLogin(req);
