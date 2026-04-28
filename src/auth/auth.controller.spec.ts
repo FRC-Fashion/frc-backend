@@ -1,5 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
+
+// Mock nanoid before importing anything that depends on it
+jest.mock('nanoid', () => ({
+  customAlphabet: jest.fn(() => () => '123456'),
+}));
+
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 

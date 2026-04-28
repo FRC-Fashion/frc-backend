@@ -15,8 +15,8 @@ describe('AppController', () => {
   });
 
   describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(appController.getHello()).toBe('Hello World!');
+    it('should return "FRC Backend Is Running"', () => {
+      expect(appController.getHello()).toBe('FRC Backend Is Running');
     });
   });
 });
