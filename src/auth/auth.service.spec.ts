@@ -35,7 +35,8 @@ const mockUser = (overrides = {}) => ({
   passwordHash: '$2b$10$hashedpassword',
   mfaSecret: null,
   emailVerifiedAt: new Date(),
-  isPhoneVerified: false,
+  isEmailVerified: true,
+  isPhoneVerified: true,
   avatarUrl: null,
   lastLoginAt: null,
   ...overrides,
@@ -65,7 +66,7 @@ const prismaServiceMock = {
     create: jest.fn(),
     update: jest.fn(),
   },
-  userSession: {
+  session: {
     create: jest.fn(),
     findFirst: jest.fn(),
     update: jest.fn(),
