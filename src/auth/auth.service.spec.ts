@@ -200,7 +200,7 @@ describe('AuthService', () => {
     });
 
     it('should return already-verified message if email already verified', async () => {
-      prismaServiceMock.user.findUnique.mockResolvedValue(mockUser());
+      prismaServiceMock.user.findUnique.mockResolvedValue(mockUser({ isEmailVerified: true }));
 
       const result = await service.verifyActivationCode({
         email: 'john@example.com',
@@ -564,7 +564,7 @@ describe('AuthService', () => {
 
     it('should return already-verified message', async () => {
       redisClient.get.mockResolvedValue(null);
-      prismaServiceMock.user.findUnique.mockResolvedValue(mockUser());
+      prismaServiceMock.user.findUnique.mockResolvedValue(mockUser({ isEmailVerified: true }));
 
       const result = await service.resendActivationCode({
         email: 'john@example.com',
